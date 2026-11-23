@@ -82,6 +82,10 @@ Vite proxies `/api` to `http://127.0.0.1:8000`. The dashboard has an empty state
 
 The configured model defaults to `sentence-transformers/all-MiniLM-L6-v2`. It loads lazily on the first analysis and uses CPU inference. A failed model download/load returns an explicit `503`; the application does not silently substitute a fabricated semantic score. Set `SEMANTIC_MODEL_NAME` only to a compatible Sentence Transformer model.
 
+## Demo and screenshots
+
+No screenshots are included in this repository yet. To demo the app locally, start the backend and frontend as described above, register a test account, and use the Resume Analyzer with a synthetic PDF or DOCX resume and a sample job description. Review the saved analysis and report, then delete the test data when finished. Use synthetic data only in screenshots; do not capture real resumes, personal details, or credentials.
+
 ## API overview
 
 All application endpoints are under `/api`; endpoints other than health require `Authorization: Bearer <access_token>`.
@@ -140,9 +144,15 @@ GitHub Actions runs Alembic migrations and backend tests, then frontend tests an
 
 ## Deployment preparation (not deployed)
 
-The repository includes `render.yaml` for the FastAPI service, `frontend/vercel.json` for the SPA, and a GitHub Actions workflow. No provider resources are created by these files. Before deployment, configure Supabase PostgreSQL with an SSL-enabled connection string, Render `DATABASE_URL` and `CORS_ORIGINS`, and Vercel `VITE_API_BASE_URL` as the deployed API base ending in `/api`. Keep `SECRET_KEY` in Render's environment and use Render's generated value.
+The repository includes `render.yaml` for the FastAPI service, `frontend/vercel.json` for the SPA, and a GitHub Actions workflow. These files do not create provider resources or deploy the app.
 
-Do not claim a deployment is working until `/api/health/ready` confirms database access and the deployed Vercel site successfully calls the Render API. Product features should also be smoke-tested against the live environment before release.
+1. **Supabase:** Create a project and copy its PostgreSQL connection URI from the database settings. Use a connection option supported by your Render service, keep SSL required (`sslmode=require`), and URL-encode any special characters in the database password. Keep the URI private; no Supabase Storage bucket is needed because original resume files are processed in memory and discarded.
+2. **Vercel:** Import the repository as a Vite project with `frontend` as the root directory and deploy it with the default `/api` base temporarily. Note the assigned HTTPS domain; do not use the site until the API URL is configured.
+3. **Render:** Create the web service from `render.yaml` with the repository's `backend` root. Set `DATABASE_URL` to the Supabase SSL-enabled URI and `CORS_ORIGINS` to the exact Vercel HTTPS origin(s), without paths or trailing slashes. The Blueprint generates `SECRET_KEY`; keep it in Render and do not replace it with the development example. Its build command installs dependencies and runs `alembic upgrade head`. Note the assigned API host.
+4. **Connect Vercel:** In the Vercel project, set `VITE_API_BASE_URL` to the Render API's full HTTPS base URL ending in `/api` (for example, `https://<service>.onrender.com/api`) for Production, then redeploy. This is a public build-time URL, not a secret.
+5. **Verify:** Check `https://<service>.onrender.com/api/health/ready` for `{"status":"ok","database":"ok"}`. Then register a test account from the Vercel site and complete an analysis using synthetic data. If the Vercel domain changes, update Render's `CORS_ORIGINS` and redeploy.
+
+No Supabase, Render, or Vercel resources have been created or tested for this repository. Do not claim a deployment is working until readiness and the frontend-to-API smoke test both succeed.
 
 ## Current limitations
 
